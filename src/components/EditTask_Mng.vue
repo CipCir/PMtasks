@@ -251,6 +251,7 @@ import firebase from "firebase";
 // import db from "./firebaseInit";
 import fireList from "./fireLists";
 import RTDB from "./firebaseInitRTDB";
+import EventBus from "../eventBus";
 
 var moment = require("moment");
 
@@ -307,7 +308,8 @@ export default {
 
       ownersList: fireList.OwnersList,
       SelectedOwner: { Label: null, UID: null },
-      initialOwner: { Label: null, UID: null }
+      initialOwner: { Label: null, UID: null },
+      createdByLabel:"",
     };
   },
   methods: {
@@ -481,6 +483,27 @@ export default {
                   t_isActive: vueObj.task_isActive == "No"
                 })
                 .then(final => {
+                  let emailBody =` A new task was assigned in MeineTasks:<br/><br/>
+                  
+                  Task name : ${vueObj.task_name}<br/>
+                  Task category: ${vueObj.SelectedProjCat}<br/>
+                  Task project: ${vueObj.SelectedProj}<br/>
+                  Task details: ${vueObj.task_details}<br/>
+                  Task start date: ${vueObj.task_start}<br/>
+                  Task end date: ${vueObj.task_deadline}<br/>
+                  Task created by: ${this.createdByLabel}<br/>
+                  `;
+                  let emailSubject = `New PM Task assigned to ${vueObj.SelectedOwner.Label}`
+                  let emailCC=['IISCompetenceTasks@ipsos.com']
+                  let emailTO=[this.$parent.emailMap[vueObj.SelectedOwner.UID]]
+                  console.log(emailTO)
+                  let data={
+                    "mailto":emailTO,
+                    "mailBody":emailBody,
+                    "emailSubject":emailSubject,
+                    "mailCC":emailCC
+                  }
+                  EventBus.$emit('sendEmail',data, false);                  
                   RTDB.ref(
                     "/USERS/" +
                       vueObj.$route.query.uid +
@@ -711,6 +734,13 @@ export default {
     }
   },
   created() {
+    let currUserLabel = RTDB.ref("/USERS/" + firebase.auth().currentUser.uid + "/Label")
+    currUserLabel.once("value", querySnapshot => {
+      this.createdByLabel=querySnapshot.val();
+    }, function (errorObject) {
+      console.log("The read failed: " + errorObject.code);
+      this.createdByLabel="";
+    })    
     var objVue = this;
     RTDB.ref(
       "/USERS/" +
